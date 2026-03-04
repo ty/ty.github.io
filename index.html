@@ -1,23 +1,383 @@
----
-layout: default
----
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hotlist</title>
+  <style>
+    :root {
+      --bg: #f0f2f5;
+      --surface: #ffffff;
+      --border: #e0e4ea;
+      --text: #1a1a2e;
+      --muted: #6b7280;
+      --accent: #4f6ef7;
+      --radius: 10px;
+      --shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
 
-<div class="home">
+    * { box-sizing: border-box; margin: 0; padding: 0; }
 
-  <h1 class="page-heading">Posts</h1>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
 
-  <ul class="post-list">
-    {% for post in site.posts %}
-      <li>
-        <span class="post-meta">{{ post.date | date: "%b %-d, %Y" }}</span>
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 2rem;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      box-shadow: var(--shadow);
+    }
 
-        <h2>
-          <a class="post-link" href="{{ post.url | prepend: site.baseurl }}">{{ post.title }}</a>
-        </h2>
-      </li>
-    {% endfor %}
-  </ul>
+    header h1 {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: -0.3px;
+    }
 
-  <p class="rss-subscribe">subscribe <a href="{{ "/feed.xml" | prepend: site.baseurl }}">via RSS</a></p>
+    main {
+      max-width: 860px;
+      margin: 1.5rem auto;
+      padding: 0 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
 
-</div>
+    /* ── Sections ── */
+    .section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.7rem 1rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      user-select: none;
+      cursor: pointer;
+    }
+
+    .section-header:hover {
+      background: #f8f9fb;
+    }
+
+    .section-header h2 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      flex: 1;
+    }
+
+    .section-content {
+      overflow: hidden;
+    }
+
+    .section-content.collapsed {
+      display: none;
+    }
+
+    /* ── Subsections ── */
+    .subsections {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      padding: 0.4rem;
+    }
+
+    .subsection {
+      border-radius: 6px;
+      overflow: hidden;
+      background: #fafbfc;
+      border: 1px solid var(--border);
+    }
+
+    .subsection-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 0.75rem;
+      user-select: none;
+      cursor: pointer;
+    }
+
+    .subsection-header:hover {
+      background: #f0f2f5;
+    }
+
+    .subsection-header h3 {
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--muted);
+      flex: 1;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .subsection-content {
+      padding: 0.3rem 0.75rem 0.6rem 2.2rem;
+    }
+
+    .subsection-content.collapsed {
+      display: none;
+    }
+
+    /* ── Links ── */
+    .links {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .links a {
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 0.88rem;
+      display: inline-block;
+      padding: 2px 0;
+    }
+
+    .links a:hover {
+      text-decoration: underline;
+    }
+
+    /* Direct links inside a section (no subsection) */
+    .section-links {
+      padding: 0.5rem 1rem 0.6rem 2.4rem;
+    }
+
+    /* ── Drag handle ── */
+    .drag-handle {
+      cursor: grab;
+      color: #c0c8d8;
+      font-size: 1rem;
+      line-height: 1;
+      padding: 0 2px;
+      flex-shrink: 0;
+    }
+
+    .drag-handle:active {
+      cursor: grabbing;
+    }
+
+    /* ── Collapse button ── */
+    .collapse-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 0.75rem;
+      padding: 3px 6px;
+      border-radius: 4px;
+      transition: transform 0.2s ease;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+
+    .section-header .collapse-btn {
+      font-size: 1.3rem;
+      color: var(--text);
+    }
+
+    .collapse-btn.collapsed {
+      transform: rotate(-90deg);
+    }
+
+    /* ── Sortable states ── */
+    .sortable-ghost {
+      opacity: 0.35;
+    }
+
+    .sortable-chosen.section {
+      box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Hotlist</h1>
+</header>
+
+<main id="sections">
+
+  <div class="section" data-id="wind">
+    <div class="section-header">
+      <span class="drag-handle">⠿</span>
+      <h2>Wind</h2>
+      <button class="collapse-btn" aria-label="Toggle">▾</button>
+    </div>
+    <div class="section-content">
+      <div class="subsections">
+
+        <div class="subsection" data-id="wind-bay">
+          <div class="subsection-header">
+            <span class="drag-handle">⠿</span>
+            <h3>Bay</h3>
+            <button class="collapse-btn" aria-label="Toggle">▾</button>
+          </div>
+          <div class="subsection-content">
+            <ul class="links">
+              <li><a href="https://www.windy.com/?hrrrConus,2026-03-06-00,37.936,-122.200,9,i:pressure,p:wind,m:eixaU0" target="_blank">Windy</a></li>
+              <li><a href="https://cameras.alertcalifornia.org/?pos=37.9204_-122.3794_10&id=Axis-NicholKnob1" target="_blank">Knichol Knob Cam</a></li>
+              <li><a href="https://wx.ikitesurf.com/search/37.84/-122.162/10" target="_blank">WF live wind map</a></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="subsection" data-id="wind-george">
+          <div class="subsection-header">
+            <span class="drag-handle">⠿</span>
+            <h3>George</h3>
+            <button class="collapse-btn" aria-label="Toggle">▾</button>
+          </div>
+          <div class="subsection-content">
+            <ul class="links">
+              <li><a href="https://thegorgeismygym.com/forecast/" target="_blank">The Gorge Is My Gym</a></li>
+              <li><a href="https://victortheinflictor.com" target="_blank">Victor the Inflictor</a></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="subsection" data-id="wind-bcs">
+          <div class="subsection-header">
+            <span class="drag-handle">⠿</span>
+            <h3>BCS</h3>
+            <button class="collapse-btn" aria-label="Toggle">▾</button>
+          </div>
+          <div class="subsection-content">
+            <ul class="links">
+              <li><a href="https://www.windy.com/?2026-03-06-00,24.285,-110.083,9,i:pressure,m:eixaUZ" target="_blank">Windy</a></li>
+              <li><a href="https://www.theventanaview.com/mas-viento/" target="_blank">Mas Viento</a></li>
+              <li><a href="https://wx.ikitesurf.com/proforecast/56" target="_blank">WF narrative forecast</a></li>
+            </ul>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+<script>
+  const sectionsEl = document.getElementById('sections');
+
+  // ── Collapse / expand ──────────────────────────────────────────
+  function toggleCollapse(parent) {
+    const content = parent.querySelector(':scope > .section-content, :scope > .subsection-content');
+    const btn = parent.querySelector(':scope > .section-header > .collapse-btn, :scope > .subsection-header > .collapse-btn');
+    const isCollapsed = content.classList.toggle('collapsed');
+    btn.classList.toggle('collapsed', isCollapsed);
+    saveState();
+  }
+
+  // Clicking anywhere on a section header toggles collapse
+  document.querySelectorAll('.section-header').forEach(header => {
+    header.addEventListener('click', e => {
+      if (e.target.closest('.drag-handle')) return;
+      toggleCollapse(header.closest('.section'));
+    });
+  });
+
+  // Clicking anywhere on a subsection header toggles collapse
+  document.querySelectorAll('.subsection-header').forEach(header => {
+    header.addEventListener('click', e => {
+      if (e.target.closest('.drag-handle')) return;
+      toggleCollapse(header.closest('.subsection'));
+    });
+  });
+
+  // ── Drag & drop ────────────────────────────────────────────────
+  new Sortable(sectionsEl, {
+    handle: '.section > .section-header > .drag-handle',
+    animation: 150,
+    ghostClass: 'sortable-ghost',
+    chosenClass: 'sortable-chosen',
+    onEnd: saveState,
+  });
+
+  document.querySelectorAll('.subsections').forEach(container => {
+    new Sortable(container, {
+      handle: '.subsection > .subsection-header > .drag-handle',
+      animation: 150,
+      ghostClass: 'sortable-ghost',
+      onEnd: saveState,
+    });
+  });
+
+  // ── State persistence ──────────────────────────────────────────
+  function saveState() {
+    const state = {
+      sectionOrder: [...sectionsEl.children].map(el => el.dataset.id),
+      subsectionOrders: {},
+      collapsed: [],
+    };
+
+    document.querySelectorAll('.subsections').forEach(container => {
+      const sectionId = container.closest('.section').dataset.id;
+      state.subsectionOrders[sectionId] = [...container.children].map(el => el.dataset.id);
+    });
+
+    document.querySelectorAll('.section-content.collapsed, .subsection-content.collapsed').forEach(el => {
+      const parent = el.closest('[data-id]');
+      if (parent) state.collapsed.push(parent.dataset.id);
+    });
+
+    localStorage.setItem('hotlist-state', JSON.stringify(state));
+  }
+
+  function loadState() {
+    let state;
+    try {
+      state = JSON.parse(localStorage.getItem('hotlist-state'));
+    } catch (e) {}
+    if (!state) return;
+
+    // Restore section order
+    state.sectionOrder?.forEach(id => {
+      const el = document.querySelector(`#sections > [data-id="${id}"]`);
+      if (el) sectionsEl.appendChild(el);
+    });
+
+    // Restore subsection order
+    Object.entries(state.subsectionOrders || {}).forEach(([sectionId, order]) => {
+      const section = document.querySelector(`[data-id="${sectionId}"]`);
+      const container = section?.querySelector('.subsections');
+      if (!container) return;
+      order.forEach(id => {
+        const el = container.querySelector(`[data-id="${id}"]`);
+        if (el) container.appendChild(el);
+      });
+    });
+
+    // Restore collapsed state
+    state.collapsed?.forEach(id => {
+      const el = document.querySelector(`[data-id="${id}"]`);
+      if (!el) return;
+      const content = el.querySelector(':scope > .section-content, :scope > .subsection-content');
+      const btn = el.querySelector(':scope > .section-header > .collapse-btn, :scope > .subsection-header > .collapse-btn');
+      content?.classList.add('collapsed');
+      btn?.classList.add('collapsed');
+    });
+  }
+
+  loadState();
+</script>
+</body>
+</html>
