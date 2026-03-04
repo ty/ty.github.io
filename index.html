@@ -154,6 +154,14 @@
       text-decoration: underline;
     }
 
+    .links li {
+      cursor: grab;
+    }
+
+    .links li:active {
+      cursor: grabbing;
+    }
+
     /* Direct links inside a section (no subsection) */
     .section-links {
       padding: 0.5rem 1rem 0.6rem 2.4rem;
@@ -204,6 +212,72 @@
     .sortable-chosen.section {
       box-shadow: 0 6px 20px rgba(0,0,0,0.12);
     }
+
+    /* ── Terminal theme ── */
+    body.theme-terminal {
+      --bg: #0a0a0a;
+      --surface: #0d1a0d;
+      --border: #003b00;
+      --text: #00ff41;
+      --muted: #00aa2a;
+      --accent: #39ff14;
+      --shadow: 0 0 8px rgba(0, 255, 65, 0.15);
+      --radius: 2px;
+      font-family: 'Courier New', Courier, monospace;
+    }
+
+    body.theme-terminal .section-header:hover {
+      background: #0f2a0f;
+    }
+
+    body.theme-terminal .subsection {
+      background: #0a150a;
+    }
+
+    body.theme-terminal .subsection-header:hover {
+      background: #0f2a0f;
+    }
+
+    body.theme-terminal h2,
+    body.theme-terminal h3,
+    body.theme-terminal .links a {
+      text-shadow: 0 0 6px currentColor;
+      letter-spacing: 0.03em;
+    }
+
+    body.theme-terminal header h1 {
+      text-shadow: 0 0 10px currentColor;
+    }
+
+    /* ── Theme bar ── */
+    .theme-bar {
+      text-align: right;
+      font-size: 0.78rem;
+      color: var(--muted);
+      padding: 0.4rem 0.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 0.5rem;
+    }
+
+    .theme-bar span {
+      color: var(--muted);
+    }
+
+    .theme-bar a {
+      color: var(--muted);
+      text-decoration: none;
+    }
+
+    .theme-bar a:hover {
+      color: var(--accent);
+    }
+
+    .theme-bar a.active {
+      color: var(--accent);
+      text-decoration: underline;
+    }
   </style>
 </head>
 <body>
@@ -233,6 +307,10 @@
             <ul class="links">
               <li><a href="https://www.windy.com/?hrrrConus,2026-03-06-00,37.936,-122.200,9,i:pressure,p:wind,m:eixaU0" target="_blank">Windy</a></li>
               <li><a href="https://cameras.alertcalifornia.org/?pos=37.9204_-122.3794_10&id=Axis-NicholKnob1" target="_blank">Knichol Knob Cam</a></li>
+              <li><a href="https://www.youtube.com/watch?v=BSWhGNXxT9A" target="_blank">TI Cam</a></li>
+              <li><a href="https://fog.today/" target="_blank">Fog</a></li>
+              <li><a href="https://www.parksconservancy.org/parks/park-web-cams" target="_blank">Crissy cam</a></li>
+              <li><a href="https://www.stfyc.com/Default.aspx?p=dynamicmodule&pageid=408391&ssid=335603&vnf=1" target="_blank">STFYC wx</a></li>
               <li><a href="https://wx.ikitesurf.com/search/37.84/-122.162/10" target="_blank">WF live wind map</a></li>
             </ul>
           </div>
@@ -274,6 +352,12 @@
 
 
 </main>
+
+<div class="theme-bar">
+  <span>Theme:</span>
+  <a href="#" onclick="setTheme('default');return false;" data-theme="default">Normie</a>
+  <a href="#" onclick="setTheme('terminal');return false;" data-theme="terminal">Terminal</a>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 <script>
@@ -322,6 +406,14 @@
     });
   });
 
+  document.querySelectorAll('.links').forEach(list => {
+    new Sortable(list, {
+      animation: 150,
+      ghostClass: 'sortable-ghost',
+      onEnd: saveState,
+    });
+  });
+
   // ── State persistence ──────────────────────────────────────────
   function saveState() {
     const state = {
@@ -334,6 +426,13 @@
       const sectionId = container.closest('.section').dataset.id;
       state.subsectionOrders[sectionId] = [...container.children].map(el => el.dataset.id);
     });
+
+    const linkOrders = {};
+    document.querySelectorAll('.subsection').forEach(sub => {
+      const id = sub.dataset.id;
+      linkOrders[id] = [...sub.querySelectorAll('.links li a')].map(a => a.href);
+    });
+    state.linkOrders = linkOrders;
 
     document.querySelectorAll('.section-content.collapsed, .subsection-content.collapsed').forEach(el => {
       const parent = el.closest('[data-id]');
@@ -367,6 +466,17 @@
       });
     });
 
+    // Restore link order
+    Object.entries(state.linkOrders || {}).forEach(([subId, hrefs]) => {
+      const sub = document.querySelector(`[data-id="${subId}"]`);
+      const list = sub?.querySelector('.links');
+      if (!list) return;
+      hrefs.forEach(href => {
+        const li = [...list.querySelectorAll('li')].find(li => li.querySelector('a')?.href === href);
+        if (li) list.appendChild(li);
+      });
+    });
+
     // Restore collapsed state
     state.collapsed?.forEach(id => {
       const el = document.querySelector(`[data-id="${id}"]`);
@@ -379,6 +489,21 @@
   }
 
   loadState();
+
+  // ── Theme switcher ─────────────────────────────────────────────
+  function setTheme(name) {
+    document.body.className = document.body.className
+      .replace(/theme-\S+/g, '').trim();
+    if (name !== 'default') {
+      document.body.classList.add('theme-' + name);
+    }
+    localStorage.setItem('hotlist-theme', name);
+    document.querySelectorAll('.theme-bar a').forEach(a => {
+      a.classList.toggle('active', a.dataset.theme === name);
+    });
+  }
+
+  setTheme(localStorage.getItem('hotlist-theme') || 'terminal');
 </script>
 </body>
 </html>
