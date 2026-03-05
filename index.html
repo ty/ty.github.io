@@ -181,6 +181,25 @@
       cursor: grabbing;
     }
 
+    /* ── Open-all button ── */
+    .open-all-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 0.85rem;
+      padding: 3px 6px;
+      border-radius: 4px;
+      line-height: 1;
+      flex-shrink: 0;
+      opacity: 0.6;
+    }
+
+    .open-all-btn:hover {
+      opacity: 1;
+      color: var(--accent);
+    }
+
     /* ── Collapse button ── */
     .collapse-btn {
       background: none;
@@ -301,6 +320,7 @@
           <div class="subsection-header">
             <span class="drag-handle">⠿</span>
             <h3>Bay</h3>
+            <button class="open-all-btn" aria-label="Open all links">⊞</button>
             <button class="collapse-btn" aria-label="Toggle">▾</button>
           </div>
           <div class="subsection-content">
@@ -323,6 +343,7 @@
           <div class="subsection-header">
             <span class="drag-handle">⠿</span>
             <h3>George</h3>
+            <button class="open-all-btn" aria-label="Open all links">⊞</button>
             <button class="collapse-btn" aria-label="Toggle">▾</button>
           </div>
           <div class="subsection-content">
@@ -337,6 +358,7 @@
           <div class="subsection-header">
             <span class="drag-handle">⠿</span>
             <h3>BCS</h3>
+            <button class="open-all-btn" aria-label="Open all links">⊞</button>
             <button class="collapse-btn" aria-label="Toggle">▾</button>
           </div>
           <div class="subsection-content">
@@ -353,6 +375,7 @@
           <div class="subsection-header">
             <span class="drag-handle">⠿</span>
             <h3>Misc WX</h3>
+            <button class="open-all-btn" aria-label="Open all links">⊞</button>
             <button class="collapse-btn" aria-label="Toggle">▾</button>
           </div>
           <div class="subsection-content">
@@ -381,6 +404,7 @@
           <div class="subsection-header">
             <span class="drag-handle">⠿</span>
             <h3>Venues</h3>
+            <button class="open-all-btn" aria-label="Open all links">⊞</button>
             <button class="collapse-btn" aria-label="Toggle">▾</button>
           </div>
           <div class="subsection-content">
@@ -395,6 +419,7 @@
           <div class="subsection-header">
             <span class="drag-handle">⠿</span>
             <h3>Other Lists</h3>
+            <button class="open-all-btn" aria-label="Open all links">⊞</button>
             <button class="collapse-btn" aria-label="Toggle">▾</button>
           </div>
           <div class="subsection-content">
@@ -562,6 +587,26 @@
   }
 
   setTheme(localStorage.getItem('hotlist-theme') || 'terminal');
+
+  // ── Open all links ─────────────────────────────────────────────
+  document.querySelectorAll('.subsection-header .open-all-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const subsection = btn.closest('.subsection');
+      const hrefs = [...subsection.querySelectorAll('.links a')].map(a => a.href);
+      if (!hrefs.length) return;
+      const win = window.open('', '_blank');
+      if (!win) return;
+      win.document.write(
+        '<script>' +
+        'var u=' + JSON.stringify(hrefs) + ';' +
+        'u.forEach(function(h){open(h,"_blank")});' +
+        'close();' +
+        '<\/script>'
+      );
+      win.document.close();
+    });
+  });
 </script>
 </body>
 </html>
