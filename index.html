@@ -297,6 +297,25 @@
       color: var(--accent);
       text-decoration: underline;
     }
+  .tide-data {
+    padding: 0.3rem 0.75rem 0.6rem 2.2rem;
+    font-size: 0.88rem;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .tide-entry {
+    display: flex;
+    gap: 0.75rem;
+    align-items: baseline;
+  }
+  .tide-time { color: var(--text); min-width: 5rem; }
+  .tide-height { color: var(--muted); min-width: 4.5rem; }
+  .tide-type-H { color: var(--accent); }
+  .tide-type-L { color: var(--muted); }
+  .current-type-flood { color: var(--text); opacity: 0.6; }
+  .current-type-ebb   { color: var(--muted); }
+  .current-type-slack { color: var(--accent); }
   </style>
 </head>
 <body>
@@ -426,6 +445,97 @@
             <ul class="links">
               <li><a href="https://www.hickswithsticks.com/calendar/" target="_blank">Hicks with Sticks</a></li>
             </ul>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+
+  <div class="section" data-id="tides">
+    <div class="section-header">
+      <span class="drag-handle">⠿</span>
+      <h2>Tides</h2>
+      <button class="collapse-btn" aria-label="Toggle">▾</button>
+    </div>
+    <div class="section-content">
+      <div class="subsections">
+
+        <div class="subsection" data-id="tides-sf">
+          <div class="subsection-header">
+            <span class="drag-handle">⠿</span>
+            <h3>San Francisco</h3>
+            <button class="collapse-btn" aria-label="Toggle">▾</button>
+          </div>
+          <div class="subsection-content">
+            <div class="tide-data" data-station="9414290">Loading…</div>
+          </div>
+        </div>
+
+        <div class="subsection" data-id="tides-isabel">
+          <div class="subsection-header">
+            <span class="drag-handle">⠿</span>
+            <h3>Point Isabel</h3>
+            <button class="collapse-btn" aria-label="Toggle">▾</button>
+          </div>
+          <div class="subsection-content">
+            <div class="tide-data" data-station="9414843">Loading…</div>
+          </div>
+        </div>
+
+        <div class="subsection" data-id="tides-sanquentin">
+          <div class="subsection-header">
+            <span class="drag-handle">⠿</span>
+            <h3>Pt San Quentin</h3>
+            <button class="collapse-btn" aria-label="Toggle">▾</button>
+          </div>
+          <div class="subsection-content">
+            <div class="tide-data" data-station="9414873">Loading…</div>
+          </div>
+        </div>
+
+        <div class="subsection" data-id="tides-inverness">
+          <div class="subsection-header">
+            <span class="drag-handle">⠿</span>
+            <h3>Inverness</h3>
+            <button class="collapse-btn" aria-label="Toggle">▾</button>
+          </div>
+          <div class="subsection-content">
+            <div class="tide-data" data-station="9415228">Loading…</div>
+          </div>
+        </div>
+
+        <div class="subsection" data-id="currents-sfb">
+          <div class="subsection-header">
+            <span class="drag-handle">⠿</span>
+            <h3>SF Bay Entrance</h3>
+            <button class="collapse-btn" aria-label="Toggle">▾</button>
+          </div>
+          <div class="subsection-content">
+            <div class="current-data" data-station="SFB1203">Loading…</div>
+          </div>
+        </div>
+
+        <div class="subsection" data-id="currents-pct">
+          <div class="subsection-header">
+            <span class="drag-handle">⠿</span>
+            <h3>Sherman Island</h3>
+            <button class="collapse-btn" aria-label="Toggle">▾</button>
+          </div>
+          <div class="subsection-content">
+            <div class="current-data" data-station="PCT0906">Loading…</div>
+          </div>
+        </div>
+
+        <div class="subsection" data-id="currents-sfb1204">
+          <div class="subsection-header">
+            <span class="drag-handle">⠿</span>
+            <h3>Alcatraz</h3>
+            <button class="collapse-btn" aria-label="Toggle">▾</button>
+          </div>
+          <div class="subsection-content">
+            <div class="current-data" data-station="SFB1204">Loading…</div>
           </div>
         </div>
 
@@ -572,6 +682,75 @@
   }
 
   loadState();
+
+  // ── Tide predictions ───────────────────────────────────────────
+  function loadTides() {
+    const d = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const dateStr = `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}`;
+
+    document.querySelectorAll('.tide-data[data-station]').forEach(el => {
+      const url = `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter`
+        + `?begin_date=${dateStr}&range=24&station=${el.dataset.station}`
+        + `&product=predictions&datum=MLLW&time_zone=lst_ldt&interval=hilo`
+        + `&units=english&application=web_services&format=json`;
+
+      fetch(url)
+        .then(r => r.json())
+        .then(data => {
+          if (!data.predictions?.length) { el.textContent = 'Unavailable'; return; }
+          el.innerHTML = data.predictions.map(p => {
+            const [, time] = p.t.split(' ');
+            const [h, m] = time.split(':');
+            const hr = parseInt(h), ampm = hr >= 12 ? 'PM' : 'AM';
+            const label = p.type === 'H' ? '▲ High' : '▼ Low';
+            return `<div class="tide-entry">
+              <span class="tide-time">${hr % 12 || 12}:${m} ${ampm}</span>
+              <span class="tide-height">${parseFloat(p.v).toFixed(1)} ft</span>
+              <span class="tide-type-${p.type}">${label}</span>
+            </div>`;
+          }).join('');
+        })
+        .catch(() => { el.textContent = 'Unavailable'; });
+    });
+  }
+  loadTides();
+
+  // ── Current predictions ─────────────────────────────────────────
+  function loadCurrents() {
+    const d = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const dateStr = `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}`;
+
+    document.querySelectorAll('.current-data[data-station]').forEach(el => {
+      const url = `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter`
+        + `?begin_date=${dateStr}&range=24&station=${el.dataset.station}`
+        + `&product=currents_predictions&time_zone=lst_ldt&interval=MAX_SLACK`
+        + `&units=english&application=web_services&format=json`;
+
+      fetch(url)
+        .then(r => r.json())
+        .then(data => {
+          const cp = data.current_predictions?.cp;
+          if (!cp?.length) { el.textContent = 'Unavailable'; return; }
+          el.innerHTML = cp.map(p => {
+            const [, time] = p.Time.split(' ');
+            const [h, m] = time.split(':');
+            const hr = parseInt(h), ampm = hr >= 12 ? 'PM' : 'AM';
+            const type = p.Type.toLowerCase();
+            const vel = type === 'slack' ? 'Slack' : `${Math.abs(p.Velocity_Major).toFixed(1)} kts`;
+            const label = type === 'flood' ? '▲ Flood' : type === 'ebb' ? '▼ Ebb' : '— Slack';
+            return `<div class="tide-entry">
+              <span class="tide-time">${hr % 12 || 12}:${m} ${ampm}</span>
+              <span class="tide-height">${vel}</span>
+              <span class="current-type-${type}">${label}</span>
+            </div>`;
+          }).join('');
+        })
+        .catch(() => { el.textContent = 'Unavailable'; });
+    });
+  }
+  loadCurrents();
 
   // ── Theme switcher ─────────────────────────────────────────────
   function setTheme(name) {
