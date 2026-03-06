@@ -595,16 +595,7 @@
       const subsection = btn.closest('.subsection');
       const hrefs = [...subsection.querySelectorAll('.links a')].map(a => a.href);
       if (!hrefs.length) return;
-      const win = window.open('', '_blank');
-      if (!win) return;
-      win.document.write(
-        '<script>' +
-        'var u=' + JSON.stringify(hrefs) + ';' +
-        'u.forEach(function(h){open(h,"_blank")});' +
-        'close();' +
-        '<\/script>'
-      );
-      win.document.close();
+      hrefs.forEach(href => window.open(href, '_blank'));
     });
   });
 </script>
