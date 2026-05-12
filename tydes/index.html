@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SF Bay Tidal Flow</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #0d1117; color: #e6edf3; display: flex; flex-direction: column; height: 100vh; }
+    header { padding: 1rem 1.5rem; border-bottom: 1px solid #30363d; flex-shrink: 0; }
+    header h1 { font-size: 1.15rem; font-weight: 600; }
+    .main { display: flex; flex: 1; overflow: hidden; }
+
+    /* Sidebar */
+    .sidebar { width: 280px; flex-shrink: 0; border-right: 1px solid #30363d; background: #161b22; overflow-y: auto; padding: 1rem; }
+    .sidebar h2 { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #8b949e; margin-bottom: 0.75rem; }
+    .station-item { display: flex; align-items: flex-start; gap: 0.6rem; padding: 0.6rem 0.5rem; border-radius: 6px; margin-bottom: 0.25rem; cursor: pointer; }
+    .station-item:hover { background: #21262d; }
+    .station-item input[type="checkbox"] { margin-top: 2px; accent-color: var(--color); flex-shrink: 0; width: 14px; height: 14px; cursor: pointer; }
+    .station-label { font-size: 0.82rem; line-height: 1.4; }
+    .station-label .name { font-weight: 600; display: flex; align-items: center; gap: 0.4rem; }
+    .station-label .swatch { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+    .station-label .meta { color: #8b949e; font-size: 0.75rem; margin-top: 0.15rem; }
+
+    /* Content */
+    .content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .controls { display: flex; gap: 1rem; align-items: center; padding: 0.75rem 1.5rem; flex-wrap: wrap; background: #161b22; border-bottom: 1px solid #30363d; flex-shrink: 0; }
+    .controls label { font-size: 0.85rem; color: #8b949e; }
+    .controls input[type="date"] { background: #21262d; color: #e6edf3; border: 1px solid #30363d; border-radius: 6px; padding: 0.3rem 0.55rem; font-size: 0.82rem; }
+    .controls button { background: #238636; color: #fff; border: none; border-radius: 6px; padding: 0.3rem 0.9rem; font-size: 0.82rem; cursor: pointer; }
+    .controls button:hover { background: #2ea043; }
+    .btn-range { background: #21262d; border: 1px solid #30363d; color: #e6edf3; border-radius: 6px; padding: 0.3rem 0.65rem; font-size: 0.78rem; cursor: pointer; }
+    .btn-range:hover { background: #388bfd22; border-color: #388bfd; color: #388bfd; }
+    .chart-wrap { flex: 1; padding: 1.25rem 1.5rem; position: relative; }
+    canvas { width: 100% !important; height: 100% !important; }
+    .legend { display: flex; gap: 1.5rem; padding: 0.5rem 1.5rem 0.75rem; font-size: 0.78rem; color: #8b949e; flex-shrink: 0; }
+    .legend span { display: flex; align-items: center; gap: 0.4rem; }
+    .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+    .no-data { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #8b949e; font-size: 0.9rem; pointer-events: none; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>SF Bay Tidal Flow</h1>
+  </header>
+  <div class="main">
+    <aside class="sidebar">
+      <h2>Stations</h2>
+      <div id="stationList"></div>
+    </aside>
+    <div class="content">
+      <div class="controls">
+        <label>From <input type="datetime-local" id="fromDate"></label>
+        <label>To <input type="datetime-local" id="toDate"></label>
+        <button onclick="applyRange()">Apply</button>
+        <button class="btn-range" onclick="setRange(1)">1 day</button>
+        <button class="btn-range" onclick="setRange(2)">2 days</button>
+        <button class="btn-range" onclick="setRange(3)">3 days</button>
+        <button class="btn-range" onclick="setRange(4)">4 days</button>
+        <button class="btn-range" onclick="setRange(7)">7 days</button>
+        <button class="btn-range" onclick="setRange(30)">30 days</button>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="chart"></canvas>
+        <div class="no-data" id="noData" style="display:none">No stations selected</div>
+      </div>
+      <div class="legend">
+        <span><i class="dot" style="background:#f78166"></i> Ebb / Low</span>
+        <span><i class="dot" style="background:#79c0ff"></i> Flood / High</span>
+        <span><i class="dot" style="background:#6e7681"></i> Slack</span>
+        <span style="margin-left:1rem; color:#6e7681">Point color = event type &nbsp;&bull;&nbsp; Line color = station</span>
+        <label style="margin-left:1rem; display:flex; align-items:center; gap:0.4rem; cursor:pointer;">
+          <input type="checkbox" id="showSlack" checked onchange="renderChart()">
+          <span>Slack lines</span>
+        </label>
+        <label style="display:flex; align-items:center; gap:0.4rem; cursor:pointer;">
+          <input type="checkbox" id="showDaylight" checked onchange="renderChart()">
+          <span>Daylight</span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const STATIONS = [
+      {
+        id: 'SFB1203',
+        file: 'data/SFB1203_18_Annual_2026.csv',
+        name: 'SFB1203',
+        note: '0.46 nm E of (SFB1203) · Depth: 30 ft',
+        location: '37.8201° N 122.4730° W',
+        color: '#388bfd',
+      },
+      {
+        id: 'SFB1204',
+        file: 'data/SFB1204_18_Annual_2026.csv',
+        name: 'SFB1204',
+        note: 'Alcatraz Island, SW of (SFB1204) · Depth: 2 ft',
+        location: '37.8143° N 122.4320° W',
+        color: '#3fb950',
+      },
+      {
+        id: 'SFB1332',
+        file: 'data/SFB1332_15_Annual_2026.csv',
+        name: 'SFB1332',
+        note: 'Sacramento River Light 14 (SFB1332) · Depth: 3 ft',
+        location: '38.0772° N 121.7639° W',
+        color: '#ffa657',
+      },
+      {
+        id: '9414290',
+        file: 'data/9414290_annual.txt',
+        name: '9414290',
+        note: 'Tide Predictions at Torpedo Pier',
+        location: '37° 48.4 N 122° 28.0 W',
+        color: '#ff7b72',
+        type: 'tide',
+      },
+      {
+        id: '9415339',
+        file: 'data/9415339_annual.txt',
+        name: 'Marshall',
+        note: 'Marshall, Tomales Bay',
+        location: '38.1617° N 122.8930° W',
+        color: '#d2a8ff',
+        type: 'tide',
+      },
+    ];
+
+    // Palette for future stations
+    const EXTRA_COLORS = ['#3fb950', '#d2a8ff', '#ffa657', '#ff7b72', '#79c0ff'];
+
+    let slackTimes = []; // timestamps (ms) of slack events in current view
+
+    const slackLinesPlugin = {
+      id: 'slackLines',
+      afterDraw(chart) {
+        const { ctx, chartArea: { top, bottom }, scales: { x } } = chart;
+        ctx.save();
+
+        // Slack lines — faint dashed gray
+        if (document.getElementById('showSlack').checked && slackTimes.length) {
+          ctx.strokeStyle = 'rgba(110,118,129,0.35)';
+          ctx.lineWidth = 1;
+          ctx.setLineDash([4, 4]);
+          slackTimes.forEach(ts => {
+            const px = x.getPixelForValue(ts);
+            if (px < x.left || px > x.right) return;
+            ctx.beginPath();
+            ctx.moveTo(px, top);
+            ctx.lineTo(px, bottom);
+            ctx.stroke();
+          });
+        }
+
+        // Now line — solid white, more contrast
+        const nowPx = x.getPixelForValue(Date.now());
+        if (nowPx >= x.left && nowPx <= x.right) {
+          ctx.strokeStyle = 'rgba(230,237,243,0.6)';
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([]);
+          ctx.beginPath();
+          ctx.moveTo(nowPx, top);
+          ctx.lineTo(nowPx, bottom);
+          ctx.stroke();
+        }
+
+        ctx.restore();
+      }
+    };
+
+    // ---- Solar data (daylight/night background) ----
+    const solarData = {}; // "YYYY-MM-DD" -> { rise, set, twilightBegin, twilightEnd }
+
+    function parseSolarFile(text, key1, key2) {
+      const lines = text.split('\n').slice(9); // skip 9-line header
+      lines.forEach(line => {
+        const parts = line.trim().split(/\s+/);
+        if (parts.length < 3 || isNaN(parseInt(parts[0]))) return;
+        const day = parseInt(parts[0]);
+        for (let m = 1; m <= 12; m++) {
+          const v1 = parts[2 * m - 1], v2 = parts[2 * m];
+          if (!v1 || !v2 || v1 === '----' || v2 === '----') continue;
+          const h1 = parseInt(v1.slice(0, 2)), mn1 = parseInt(v1.slice(2, 4));
+          const h2 = parseInt(v2.slice(0, 2)), mn2 = parseInt(v2.slice(2, 4));
+          const key = `2026-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+          if (!solarData[key]) solarData[key] = {};
+          // Data is UTC for E122 (UTC+8). Add +16h to convert to W122 (UTC-8) equivalent.
+          // Rise/Begin hours are 18-23 UTC → belong to previous UTC calendar day, so use day-1.
+          // Set/End hours are 08-11 UTC → same UTC calendar day, use day.
+          solarData[key][key1] = new Date(Date.UTC(2026, m - 1, h1 >= 18 ? day - 1 : day, h1 + 16, mn1));
+          solarData[key][key2] = new Date(Date.UTC(2026, m - 1, h2 >= 18 ? day - 1 : day, h2 + 16, mn2));
+        }
+      });
+    }
+
+    async function loadSolarData() {
+      const [sunText, twilText] = await Promise.all([
+        fetch('data/SF_sunrise_sunset_2026.txt').then(r => r.text()),
+        fetch('data/SF_civil_twilight_2026.txt').then(r => r.text()),
+      ]);
+      parseSolarFile(sunText, 'rise', 'set');
+      parseSolarFile(twilText, 'twilightBegin', 'twilightEnd');
+    }
+
+    function fillBand(ctx, x, t1, t2, c1, c2, top, bottom) {
+      const x1 = Math.max(x.left, x.getPixelForValue(t1 instanceof Date ? t1.getTime() : t1));
+      const x2 = Math.min(x.right, x.getPixelForValue(t2 instanceof Date ? t2.getTime() : t2));
+      if (x2 <= x1) return;
+      const grad = ctx.createLinearGradient(x1, 0, x2, 0);
+      grad.addColorStop(0, c1);
+      grad.addColorStop(1, c2);
+      ctx.fillStyle = grad;
+      ctx.fillRect(x1, top, x2 - x1, bottom - top);
+    }
+
+    const daylightPlugin = {
+      id: 'daylight',
+      beforeDatasetsDraw(chart) {
+        if (!document.getElementById('showDaylight').checked) return;
+        const { ctx, chartArea: { left, right, top, bottom }, scales: { x } } = chart;
+        const NIGHT = 'rgba(0, 5, 25, 0.55)';
+        const DAY = 'rgba(80, 100, 120, 0.18)';
+        const from = new Date(x.min);
+        const to = new Date(x.max);
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(left, top, right - left, bottom - top);
+        ctx.clip();
+
+        const d = new Date(from);
+        d.setHours(0, 0, 0, 0);
+        while (d <= to) {
+          const key = d.toLocaleDateString('en-CA');
+          const solar = solarData[key];
+          const dayStart = Math.max(d.getTime(), from.getTime());
+          const dayEnd = Math.min(new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).getTime(), to.getTime());
+
+          if (solar && solar.twilightBegin && solar.rise && solar.set && solar.twilightEnd) {
+            const { twilightBegin, rise, set, twilightEnd } = solar;
+            fillBand(ctx, x, dayStart,     twilightBegin, NIGHT, NIGHT, top, bottom);
+            fillBand(ctx, x, twilightBegin, rise,          NIGHT, DAY,   top, bottom);
+            fillBand(ctx, x, set,           twilightEnd,   DAY,   NIGHT, top, bottom);
+            fillBand(ctx, x, twilightEnd,  dayEnd,        NIGHT, NIGHT, top, bottom);
+          } else {
+            fillBand(ctx, x, dayStart, dayEnd, NIGHT, NIGHT, top, bottom);
+          }
+          d.setDate(d.getDate() + 1);
+        }
+        ctx.restore();
+      }
+    };
+
+    // ---- Station data ----
+    const stationData = {}; // id -> parsed rows
+    let chart;
+    let checked = new Set([STATIONS[0].id]); // first station on by default
+
+    function nowStr(d) {
+      // Returns "YYYY-MM-DDTHH:MM" for datetime-local input
+      d = d || new Date();
+      return d.getFullYear() + '-'
+        + String(d.getMonth() + 1).padStart(2, '0') + '-'
+        + String(d.getDate()).padStart(2, '0') + 'T'
+        + String(d.getHours()).padStart(2, '0') + ':'
+        + String(d.getMinutes()).padStart(2, '0');
+    }
+
+    function stationColor(station) {
+      return station.color || EXTRA_COLORS[STATIONS.indexOf(station) % EXTRA_COLORS.length];
+    }
+
+    function eventColor(event) {
+      if (event === 'ebb' || event === 'L')   return '#f78166';
+      if (event === 'flood' || event === 'H') return '#79c0ff';
+      return '#6e7681';
+    }
+
+    function buildSidebar() {
+      const list = document.getElementById('stationList');
+      list.innerHTML = '';
+      STATIONS.forEach(s => {
+        const color = stationColor(s);
+        const item = document.createElement('label');
+        item.className = 'station-item';
+        item.style.setProperty('--color', color);
+        item.innerHTML = `
+          <input type="checkbox" ${checked.has(s.id) ? 'checked' : ''} onchange="toggleStation('${s.id}', this.checked)">
+          <div class="station-label">
+            <div class="name"><i class="swatch" style="background:${color}"></i>${s.name}</div>
+            <div class="meta">${s.note}</div>
+            <div class="meta">${s.location}</div>
+          </div>`;
+        list.appendChild(item);
+      });
+    }
+
+    function parseCsv(text) {
+      return text.trim().split('\n').slice(1).map(line => {
+        const parts = line.split(',');
+        const dt = parts[0].trim().replace(' ', 'T');
+        const event = parts[1].trim();
+        const speedRaw = parts[2].trim();
+        const speed = speedRaw === '-' ? 0 : parseFloat(speedRaw);
+        return { dt: new Date(dt), event, speed };
+      }).filter(d => !isNaN(d.dt.getTime()));
+    }
+
+    function parseTideTxt(text) {
+      const lines = text.split('\n');
+      // Find the data header line
+      const headerIdx = lines.findIndex(l => l.startsWith('Date'));
+      if (headerIdx === -1) return [];
+      return lines.slice(headerIdx + 1).map(line => {
+        const parts = line.trim().split(/\t+/);
+        if (parts.length < 6) return null;
+        const dt = parts[0].replace(/\//g, '-') + 'T' + parts[2];
+        const speed = parseFloat(parts[3]);
+        const event = parts[5].trim();
+        return { dt: new Date(dt), event, speed };
+      }).filter(d => d && !isNaN(d.dt.getTime()));
+    }
+
+    async function loadStation(station) {
+      if (stationData[station.id]) return; // already loaded
+      const resp = await fetch(station.file);
+      const text = await resp.text();
+      stationData[station.id] = station.type === 'tide' ? parseTideTxt(text) : parseCsv(text);
+    }
+
+    async function toggleStation(id, on) {
+      if (on) {
+        checked.add(id);
+        const s = STATIONS.find(s => s.id === id);
+        await loadStation(s);
+      } else {
+        checked.delete(id);
+      }
+      renderChart();
+    }
+
+    function applyRange() { renderChart(); }
+
+    function setRange(days) {
+      const from = new Date();
+      const to = new Date(from.getTime() + days * 24 * 60 * 60 * 1000);
+      document.getElementById('fromDate').value = nowStr(from);
+      document.getElementById('toDate').value = nowStr(to);
+      renderChart();
+    }
+
+    function renderChart() {
+      const from = new Date(document.getElementById('fromDate').value);
+      const to = new Date(document.getElementById('toDate').value);
+
+      const activeStations = STATIONS.filter(s => checked.has(s.id));
+      document.getElementById('noData').style.display = activeStations.length === 0 ? 'flex' : 'none';
+
+      // Collect unique slack timestamps across all active stations
+      const slackSet = new Set();
+      activeStations.forEach(s => {
+        (stationData[s.id] || []).filter(d => d.dt >= from && d.dt <= to && d.event === 'slack')
+          .forEach(d => slackSet.add(d.dt.getTime()));
+      });
+      slackTimes = Array.from(slackSet).sort((a, b) => a - b);
+
+      const datasets = activeStations.map(s => {
+        const rows = (stationData[s.id] || []).filter(d => d.dt >= from && d.dt <= to);
+        return {
+          label: s.name,
+          data: rows.map(d => ({ x: d.dt, y: d.speed })),
+          borderColor: stationColor(s),
+          borderWidth: 1.5,
+          pointBackgroundColor: rows.map(d => eventColor(d.event)),
+          pointRadius: 5,
+          pointHoverRadius: 7,
+          tension: 0.3,
+          fill: false,
+          yAxisID: s.type === 'tide' ? 'yTide' : 'y',
+          _rows: rows,
+          _station: s,
+        };
+      });
+
+      if (chart) chart.destroy();
+      chart = new Chart(document.getElementById('chart'), {
+        plugins: [daylightPlugin, slackLinesPlugin],
+        type: 'line',
+        data: { datasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: ctx => {
+                  const row = ctx.dataset._rows[ctx.dataIndex];
+                  const s = ctx.dataset._station;
+                  if (s.type === 'tide') {
+                    return `${ctx.dataset.label}  ${row.event === 'H' ? 'High' : 'Low'}  ${row.speed} ft`;
+                  }
+                  const val = row.speed === 0 && row.event === 'slack' ? 'slack' : `${row.speed} kts`;
+                  return `${ctx.dataset.label}  ${row.event}  ${val}`;
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              type: 'time',
+              time: { tooltipFormat: 'MMM d, HH:mm' },
+              ticks: { color: '#8b949e' },
+              grid: { color: '#21262d' }
+            },
+            y: {
+              title: { display: true, text: 'Speed (knots)', color: '#8b949e' },
+              ticks: { color: '#8b949e' },
+              grid: { color: '#21262d' }
+            },
+            yTide: {
+              position: 'right',
+              title: { display: true, text: 'Height (ft)', color: '#8b949e' },
+              ticks: { color: '#8b949e' },
+              grid: { drawOnChartArea: false },
+              display: activeStations.some(s => s.type === 'tide'),
+            }
+          }
+        }
+      });
+    }
+
+    async function init() {
+      buildSidebar();
+      const now = new Date();
+      const plus24 = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      document.getElementById('fromDate').value = nowStr(now);
+      document.getElementById('toDate').value = nowStr(plus24);
+      // Load solar data and initially checked stations in parallel
+      await Promise.all([
+        loadSolarData(),
+        ...STATIONS.filter(s => checked.has(s.id)).map(loadStation),
+      ]);
+      renderChart();
+    }
+
+    init();
+  </script>
+</body>
+</html>
