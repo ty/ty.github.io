@@ -143,7 +143,7 @@
 
         // Slack lines — faint dashed gray
         if (document.getElementById('showSlack').checked && slackTimes.length) {
-          ctx.strokeStyle = 'rgba(110,118,129,0.35)';
+          ctx.strokeStyle = 'rgba(139,148,158,0.6)';
           ctx.lineWidth = 1;
           ctx.setLineDash([4, 4]);
           slackTimes.forEach(ts => {
@@ -421,7 +421,7 @@
             y: {
               title: { display: true, text: 'Speed (knots)', color: '#8b949e' },
               ticks: { color: '#8b949e' },
-              grid: { color: '#21262d' }
+              grid: { color: ctx => ctx.tick && ctx.tick.value === 0 ? '#6e7681' : '#21262d' }
             },
             yTide: {
               position: 'right',
